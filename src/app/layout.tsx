@@ -13,8 +13,23 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${jetMono.variable} h-full antialiased dark`}>
-      <body className="min-h-full flex flex-col bg-[#080a0f] text-slate-200 selection:bg-[#00ff88]/20">{children}</body>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${jetMono.variable} h-full antialiased`} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{const s=localStorage.getItem('clearance:theme');const d=s? s==='dark' : window.matchMedia('(prefers-color-scheme: dark)').matches; document.documentElement.classList.toggle('dark', d);}catch{}`,
+          }}
+        />
+      </head>
+      <body className="min-h-full flex flex-col selection:bg-[var(--accent-soft)] transition-colors">
+        {/* ambient lighting artifacts */}
+        <div className="ambient" aria-hidden>
+          <div className="orb orb--1" />
+          <div className="orb orb--2" />
+          <div className="orb orb--3" />
+        </div>
+        {children}
+      </body>
     </html>
   );
 }
