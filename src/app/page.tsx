@@ -66,6 +66,8 @@ export default function Home() {
   ]);
   const [budgetUsed, setBudgetUsed] = useState(18200); // of 25000
   const [approvedTotal, setApprovedTotal] = useState(0);
+  const [liveDecision, setLiveDecision] = useState<{ risk: string; policyHit: string; reason: string; vendorHistory: string; afterPct: number } | null>(null);
+  const [liveMeta, setLiveMeta] = useState<{ model: string; timingMs: number } | null>(null);
   const termRef = useRef<HTMLDivElement>(null);
 
   // session persistence demo: survive refresh
@@ -81,59 +83,71 @@ export default function Home() {
 
   useEffect(() => { if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight; }, [logs]);
 
-  const startRun = () => {
-    if (state !== "idle" && state !== "done" && state !== "denied") return;
-    setState("scanning");
-    setSubs(SUBAGENTS_TEMPLATE);
-    setLogs([]);
-    setShowApproval(false);
-    pushLog(`$ trueforge agent run --id ${active.id} --model gpt-4o-mini`);
-    pushLog(`[harness] Planning turn, deferred tool loading — Gmail MCP hydrated`);
-    pushLog(`[gmail:mcp] gmail_read(${active.id}) → subject: "${active.subject}"`);
-    setTimeout(() => runSubagents(), 700);
-  };
-
   const pushLog = (s: string) => setLogs((p) => [...p, s]);
   const pushAudit = (msg: string, ok?: boolean) =>
     setAudit((p) => [...p, { t: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), msg, ok }]);
 
-  const runSubagents = () => {
+  const startRun = async () => {
+    if (state !== "idle" && state !== "done" && state !== "denied") return;
+    setState("scanning");
+    setSubs(SUBAGENTS_TEMPLATE.map((s) => ({ ...s, status: "queued" as const, output: undefined })));
+    setLogs([]);
+    setShowApproval(false);
+    setLiveDecision(null);
+    setLiveMeta(null);
+    pushLog(`$ trueforge agent run --id ${active.id} --model opencode/muse-spark-1.2 (zen) → fallback openai/gpt-4o-mini`);
+    pushLog(`[harness] POST /api/agent/run — Gmail MCP hydrated, deferred tools loading`);
+    pushLog(`[gmail:mcp] gmail_read(${active.id}) → "${active.subject}"`);
+    pushLog(`[fetch] POST /api/agent/run — see Network tab → live Exa + GitHub + OpenRouter calls`);
     setState("delegating");
-    pushLog(`[harness] Delegating to 3 subagents in parallel — clean contexts`);
-    // sequential animation for subagents
-    subs.forEach((_, i) => {
-      setTimeout(() => {
-        setSubs((prev) => prev.map((s, idx) => (idx === i ? { ...s, status: "running" as const } : s)));
-        pushLog(`[subagent:${SUBAGENTS_TEMPLATE[i].name}] started — ${SUBAGENTS_TEMPLATE[i].task}`);
-      }, i * 400);
-      setTimeout(() => {
-        const outputs = [
-          "median $3,900 → +7.6% premium; within founder tolerance",
-          `cited ${active.policyHit ?? "§1.1 OK, under $5k single PO"}`,
-          "vendor Acme: 4 prior POs, avg $3.1k, no disputes",
-        ];
-        setSubs((prev) => prev.map((s, idx) => (idx === i ? { ...s, status: "done" as const, output: outputs[idx], latencyMs: 800 + i * 220 } : s)));
-        pushLog(`[subagent:${SUBAGENTS_TEMPLATE[i].name}] done (${800 + i * 220}ms) — ${outputs[i]}`);
-        if (i === 2) setTimeout(() => runSandbox(), 500);
-      }, 1200 + i * 400);
-    });
-  };
+    // animate subagents to running
+    setSubs((prev) => prev.map((s) => ({ ...s, status: "running" as const })));
+    pushLog(`[harness] Delegating to 3 subagents in parallel — clean contexts → awaiting /api/agent/run`);
 
-  const runSandbox = () => {
-    setState("sandbox");
-    pushLog(`[sandbox:daytona] provision on-demand — isolated Python`);
-    pushLog(`> python3 /mnt/parse.py --pdf inv-${active.id}.pdf`);
-    setTimeout(() => pushLog(`  pdfplumber: 1 page, 1 table extracted`), 400);
-    setTimeout(() => pushLog(`  items: ${active.items.map((it) => `${it.qty}× ${it.name} @ ${formatUSD(it.unit)}`).join(", ")}`), 700);
-    setTimeout(() => pushLog(`  calc: TOTAL ${formatUSD(active.amount)} | BUDGET ${formatUSD(budgetUsed)} → ${Math.round((budgetUsed / 25000) * 100)}% → AFTER ${Math.round(((budgetUsed + active.amount) / 25000) * 100)}%`), 1000);
-    setTimeout(() => {
-      pushLog(`[sandbox] offload large result → compacted context ✓`);
-      pushAudit(`Sandbox ran — extracted ${active.items.length} line item(s), total ${formatUSD(active.amount)}`, true);
+    const t0 = Date.now();
+    try {
+      const res = await fetch("/api/agent/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invoice: active, budgetUsed }),
+      });
+      const data = await res.json();
+      const ms = Date.now() - t0;
+      if (!res.ok || !data.ok) throw new Error(data.error || "agent run failed");
+
+      // Update subagents with REAL live data
+      const exaOut = data.live?.exa?.ok ? `Exa: ${data.live.exa.sample?.slice(0,80) ?? "price found"} (${data.live.exa.status})` : `Exa err: ${data.live?.exa?.error?.slice(0,80) ?? "no key"}`;
+      const llmOut = data.live?.llm?.ok ? `${data.live.llm.model} → ${data.decision.policyHit}` : `LLM err: ${data.live?.llm?.error?.slice(0,80)}`;
+      const ghOut = data.live?.gh?.ok ? `GitHub user ${data.live.gh.user} OK (${data.live.gh.status})` : `GH err: ${data.live?.gh?.error?.slice(0,80)}`;
+      setSubs([
+        { id: "sa1", name: "Price-Auditor", task: "Exa web_search live → median price", status: "done", output: exaOut, latencyMs: ms },
+        { id: "sa2", name: "Policy-Checker", task: `LLM ${data.harness.model} → policy cite`, status: "done", output: llmOut, latencyMs: ms },
+        { id: "sa3", name: "Vendor-Graph", task: "GitHub + Postgres live → vendor history", status: "done", output: ghOut, latencyMs: ms },
+      ]);
+      pushLog(`[subagent:Price-Auditor] done (${ms}ms) — ${exaOut}`);
+      pushLog(`[subagent:Policy-Checker] done — ${llmOut}`);
+      pushLog(`[subagent:Vendor-Graph] done — ${ghOut}`);
+      if (data.live?.llm?.content) pushLog(`[llm:${data.harness.model}] ${data.live.llm.content.slice(0,180)}`);
+      // Sandbox real calc
+      setState("sandbox");
+      pushLog(`[sandbox:node] isolated calc — engine ${data.live.sandbox.engine}`);
+      data.live.sandbox.logs.forEach((l: string) => pushLog(`  ${l}`));
+      pushLog(`[sandbox] total $${data.live.sandbox.calc.total} | before ${data.live.sandbox.calc.beforePct}% → after ${data.live.sandbox.calc.afterPct}%`);
+      pushAudit(`LIVE: Exa ${data.live.exa.ok?"OK":"ERR"} + LLM ${data.live.llm.ok?data.harness.model:"ERR"} + GH ${data.live.gh.ok?"OK":"ERR"} in ${data.timingMs}ms`, true);
+      setLiveDecision(data.decision);
+      setLiveMeta({ model: data.harness.model, timingMs: data.timingMs });
+      pushLog(`[harness] ⏸  HOLD — tool_approval required: send_email + db_write (human checkpoint)`);
+      pushAudit(`Paused for human approval — ${active.id} ${formatUSD(active.amount)} to ${active.vendor} — ${data.decision.policyHit} — risk ${data.decision.risk}`);
       setState("awaiting_approval");
       setShowApproval(true);
-      pushLog(`[harness] ⏸  HOLD — tool_approval required: send_email + db_write`);
-      pushAudit(`Paused for human approval — ${active.id} ${formatUSD(active.amount)} to ${active.vendor}`);
-    }, 1400);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      pushLog(`[error] /api/agent/run failed: ${msg}`);
+      pushAudit(`Agent run failed: ${msg}`, false);
+      // mark subagents error
+      setSubs((prev) => prev.map((s) => ({ ...s, status: "error" as const, output: msg.slice(0,80) })));
+      setState("idle");
+    }
   };
 
   const approve = () => {
@@ -210,9 +224,9 @@ export default function Home() {
         <div className="tile lg:col-span-3 col-span-6 p-5">
           <p className="text-[11px] font-mono tracking-widest text-slate-400">HARNESS TRACE</p>
           <ul className="mt-3 space-y-1.5 text-xs font-mono">
-            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Model: gpt-4o-mini</li>
-            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Sandbox: Daytona (on-demand)</li>
-            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> Subagents: 3 parallel</li>
+            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Model: {liveMeta?.model ?? "openai/gpt-4o-mini (via OpenRouter)"} {liveMeta ? `· ${liveMeta.timingMs}ms` : ""}</li>
+            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Sandbox: node isolated (real calc)</li>
+            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> Subagents: 3 parallel live (Exa+LLM+GH)</li>
             <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-sky-400" /> Session: Postgres+Redis (persisted)</li>
           </ul>
         </div>
@@ -258,7 +272,7 @@ export default function Home() {
                 <p className="text-xs font-mono text-slate-400">{active.subject} · {active.date}</p>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`text-xs font-mono px-2.5 py-1 rounded-full border ${active.risk === "high" ? "bg-red-500/10 border-red-500/20 text-red-300" : active.risk === "medium" ? "bg-amber-500/10 border-amber-500/20 text-amber-300" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-300"}`}>{active.risk} risk</span>
+                <span className={`text-xs font-mono px-2.5 py-1 rounded-full border ${(liveDecision?.risk ?? active.risk) === "high" ? "bg-red-500/10 border-red-500/20 text-red-300" : (liveDecision?.risk ?? active.risk) === "medium" ? "bg-amber-500/10 border-amber-500/20 text-amber-300" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-300"}`}>{liveDecision?.risk ?? active.risk} risk{liveDecision ? " · live" : ""}</span>
                 <span className="text-xs font-mono px-2 py-1 rounded-full bg-[#1e2230] border border-[#222738]">{formatUSD(active.amount)}</span>
               </div>
             </div>
@@ -288,10 +302,10 @@ export default function Home() {
                   </tbody>
                 </table>
               </div>
-              {active.policyHit && (
+              {(liveDecision?.policyHit ?? active.policyHit) && (
                 <div className="px-3 py-2 bg-amber-500/10 border-t border-amber-500/20 text-xs flex gap-2">
                   <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
-                  <span className="font-mono text-amber-200">{active.policyHit}</span>
+                  <span className="font-mono text-amber-200">{liveDecision?.policyHit ?? active.policyHit} {liveDecision ? <span className="text-slate-400">· {liveDecision.reason?.slice(0,80)}</span> : null}</span>
                 </div>
               )}
             </div>
@@ -389,8 +403,8 @@ export default function Home() {
             <div className="px-6 py-4 space-y-3">
               <div className="rounded-xl bg-[#0f1117] border border-[#222738] p-3 grid grid-cols-3 gap-3 text-center">
                 <div><p className="text-xs font-mono text-slate-400">Total</p><p className="text-sm font-semibold font-mono">{formatUSD(active.amount)}</p></div>
-                <div><p className="text-xs font-mono text-slate-400">Budget after</p><p className="text-sm font-semibold font-mono">{afterPct}%</p></div>
-                <div><p className="text-xs font-mono text-slate-400">Policy</p><p className="text-xs font-mono text-amber-300 mt-1">{active.policyHit ?? "OK"}</p></div>
+                <div><p className="text-xs font-mono text-slate-400">Budget after</p><p className="text-sm font-semibold font-mono">{liveDecision?.afterPct ?? afterPct}%</p></div>
+                <div><p className="text-xs font-mono text-slate-400">Policy</p><p className="text-xs font-mono text-amber-300 mt-1">{liveDecision?.policyHit ?? active.policyHit ?? "OK"}</p></div>
               </div>
               <div className="rounded-xl bg-[#0f1117] border border-[#222738] p-3 text-xs font-mono leading-relaxed">
                 <p className="text-slate-300">This will:</p>
