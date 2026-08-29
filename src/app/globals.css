@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+:root {
+  --background: #080a0f;
+  --foreground: #e2e8f0;
+  --surface: #11131a;
+  --surface-2: #171a23;
+  --surface-3: #1e2230;
+  --border: #222738;
+  --muted: #94a3b8;
+  --accent: #00ff88;
+  --accent-hover: #00e67a;
+  --danger: #ff3b30;
+  --warning: #ffcc02;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-accent: var(--accent);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 8pt scale vars */
+:root {
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-6: 24px; --s-8: 32px; --s-12: 48px; --s-16: 64px;
+}
+
+.bento {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  grid-auto-rows: minmax(140px, auto);
+  gap: 16px;
+}
+@media (max-width: 1024px) { .bento { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 640px) { .bento { grid-template-columns: 1fr; } }
+
+.tile {
+  background: linear-gradient(180deg, var(--surface) 0%, #0f1117 100%);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.focus-ring:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

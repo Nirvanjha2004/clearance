@@ -1,0 +1,35 @@
+# TrueForge MCP Catalog — Clearance
+# Every tool is real (not mocked) — Gmail via OAuth, Postgres, GitHub, Exa Search
+mcpServers:
+  gmail:
+    type: remote
+    url: "https://gmail-mcp.trueforge.local/mcp"
+    auth: oauth_in_chat
+    tools: [gmail_list, gmail_read, gmail_send]
+    description: "Procurement inbox — reads invoices, sends PO confirmations"
+
+  postgres:
+    type: remote
+    url: "${POSTGRES_MCP_URL}"
+    auth: header
+    tools: [query, insert, list_tables]
+    description: "Finance DB — vendors, budgets, PO history"
+
+  github:
+    type: remote
+    url: "https://api.githubcopilot.com/mcp"
+    auth: header
+    tools: [create_issue, create_pr, commit_file]
+    description: "Audit log — commits immutable PO record"
+
+  exa:
+    type: remote
+    url: "https://mcp.exa.ai/mcp"
+    tools: [web_search, crawl]
+    description: "Price & vendor reputation lookup"
+
+  # Built-in TrueForge tools
+  sandbox:
+    provider: daytona
+    onDemand: true
+    description: "Isolated Python — pdfplumber extraction + budget calc"
