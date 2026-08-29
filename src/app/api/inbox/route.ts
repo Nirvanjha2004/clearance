@@ -83,9 +83,17 @@ export async function GET() {
                     const text = (parsed.text as string | undefined) ?? "";
                     const attachments = (parsed.attachments as Array<{ filename?: string; contentType?: string }> | undefined) ?? [];
                     const hasPdf = attachments.some((a) => (a.filename ?? "").toLowerCase().endsWith(".pdf") || a.contentType === "application/pdf");
-                    // naive amount parse
-                    const amtMatch = subject.match(/\$[\d,]+(?:\.\d{2})?/) ?? text.match(/\$[\d,]+(?:\.\d{2})?/) ?? text.match(/₹[\d,]+/);
-                    const amount = amtMatch ? Number(amtMatch[0].replace(/[$,₹]/g, "")) : 0;
+                    // procurement filter — keep only mails that look like invoices/quotes
+                    const hay = `${subject} ${text}`.toLowerCase();
+                    const isProc = hasPdf || /\b(invoice|quote|po\b|procurement|bill|payment|vendor|purchase|requisition|total)\b/i.test(hay) || /\$[\d,]+/.test(subject + " " + text.slice(0,800));
+                    if (!isProc) {
+                      // stash for fallback but don't push as invoice — keep Gmail noise out of procurement inbox
+                      // we still parse but mark; we'll filter later
+                    }
+                    // amount parse — ignore unrealistic salary $700k+
+                    const amtMatch = subject.match(/\$[\d,]+(?:\.\d{2})?/) ?? text.slice(0,2000).match(/\$[\d,]+(?:\.\d{2})?/) ?? text.match(/₹[\d,]+/);
+                    let amount = amtMatch ? Number(amtMatch[0].replace(/[$,₹]/g, "")) : 0;
+                    if (amount > 50000) amount = 0; // likely salary, not procurement PO
                     // qty parse like 12x or 12 x
                     const qtyMatch = subject.match(/(\d+)\s*[x×]/i) ?? text.match(/(\d+)\s*[x×]/i);
                     const qty = qtyMatch ? Number(qtyMatch[1]) : 1;
@@ -93,6 +101,10 @@ export async function GET() {
                     const id = `MAIL-${parsed.messageId?.slice(1, 8) ?? String(pending).padStart(4, "0")}`;
                     const date = parsed.date ? new Date(parsed.date).toLocaleString() : "Today";
                     const risk = amount > 5000 ? "high" : amount > 2000 ? "medium" : "low";
+                    if (!isProc && !hasPdf) {
+                      // skip non-procurement noise (job alerts etc) — keeps inbox clean
+                      return;
+                    }
                     toFetch.push({
                       id,
                       vendor: vendor.slice(0, 40),

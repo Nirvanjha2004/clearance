@@ -17,7 +17,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{const s=localStorage.getItem('clearance:theme');const d=s? s==='dark' : window.matchMedia('(prefers-color-scheme: dark)').matches; document.documentElement.classList.toggle('dark', d);}catch{}`,
+            __html: `try{const s=localStorage.getItem('clearance:theme');const d=s? s==='dark' : false; document.documentElement.classList.toggle('dark', d);}catch{}`,
           }}
         />
       </head>
