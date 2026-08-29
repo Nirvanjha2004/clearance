@@ -278,7 +278,7 @@ export default function Home() {
             <h2 className="text-sm font-semibold flex items-center gap-2"><Mail size={16} /> Procurement Inbox</h2>
             <span className="text-[11px] font-mono px-2 py-1 rounded-full bg-[#1e2230] border border-[#222738]">3 new</span>
           </div>
-          <div className="divide-y divide-[#222738]">
+          <div className="divide-y divide-[#222738] overflow-y-auto no-scrollbar flex-1 max-h-[420px]">
             {inbox.map((inv) => (
               <button
                 key={inv.id}
