@@ -41,11 +41,12 @@ type Invoice = {
   policyHit?: string;
 };
 
-const INBOX: Invoice[] = [
-  { id: "INV-2419", vendor: "Acme Workstations", subject: "Quote for 12× MacBook Air M3", amount: 4200, date: "Today 09:14", risk: "medium", policyHit: "§2.1 Monthly budget 82% → approval required", items: [{ name: "MacBook Air M3 16/512", qty: 12, unit: 350 }] },
+const SEED_INBOX: Invoice[] = [
+  { id: "INV-2419", vendor: "Acme Workstations", subject: "Quote for 12× MacBook Air M3 — $4,200", amount: 4200, date: "Today 09:14", risk: "medium", policyHit: "§2.1 Monthly budget 82% → approval required", items: [{ name: "MacBook Air M3 16/512", qty: 12, unit: 350 }] },
   { id: "INV-2420", vendor: "Vercel Inc.", subject: "Pro plan + overages — July", amount: 892, date: "Today 08:02", risk: "low", items: [{ name: "Pro seats ×8", qty: 1, unit: 240 }, { name: "Bandwidth overage", qty: 1, unit: 652 }] },
   { id: "INV-2421", vendor: "Bright Data", subject: "Scraping API — 5M requests", amount: 6100, date: "Yesterday", risk: "high", policyHit: "§2.3 >$5k single PO → founder LGTM + §3.2 need 2 quotes", items: [{ name: "API credits", qty: 1, unit: 6100 }] },
 ];
+const INBOX: Invoice[] = SEED_INBOX;
 
 const SUBAGENTS_TEMPLATE: Subagent[] = [
   { id: "sa1", name: "Price-Auditor", task: "Exa web_search → median price check + sandbox calc", status: "queued" },
@@ -54,8 +55,45 @@ const SUBAGENTS_TEMPLATE: Subagent[] = [
 ];
 
 export default function Home() {
-  const [activeId, setActiveId] = useState("INV-2419");
-  const active = useMemo(() => INBOX.find((i) => i.id === activeId)!, [activeId]);
+  const [inbox, setInbox] = useState<Invoice[]>(SEED_INBOX);
+  const [inboxSource, setInboxSource] = useState<string>("seed");
+  const [inboxLoading, setInboxLoading] = useState(false);
+  // fetch real Gmail inbox on mount (IMAP) — see /api/inbox
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        setInboxLoading(true);
+        const r = await fetch("/api/inbox", { cache: "no-store" });
+        const j = await r.json();
+        if (!cancelled && j.invoices?.length) {
+          // map live shape to Invoice[]
+          const live: Invoice[] = j.invoices.map((x: { id: string; vendor: string; subject: string; amount: number; items: { name: string; qty: number; unit: number }[]; date: string; risk: string; hasPdf?: boolean }) => ({
+            id: x.id,
+            vendor: x.vendor,
+            subject: x.subject,
+            amount: x.amount,
+            items: x.items,
+            date: x.date,
+            risk: (x.risk as Invoice["risk"]) ?? "medium",
+            policyHit: undefined,
+          }));
+          setInbox(live);
+          setInboxSource(j.source ?? "gmail live");
+          // keep activeId valid
+          if (!live.find((i) => i.id === activeId)) setActiveId(live[0].id);
+        }
+      } catch {}
+      if (!cancelled) setInboxLoading(false);
+    };
+    load();
+    // poll every 20s for new mail user sends
+    const iv = setInterval(load, 20000);
+    return () => { cancelled = true; clearInterval(iv); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const [activeId, setActiveId] = useState(SEED_INBOX[0].id);
+  const active = useMemo(() => inbox.find((i) => i.id === activeId) ?? inbox[0], [inbox, activeId]);
   const [state, setState] = useState<AgentState>("idle");
   const [subs, setSubs] = useState<Subagent[]>(SUBAGENTS_TEMPLATE);
   const [logs, setLogs] = useState<string[]>([]);
@@ -241,7 +279,7 @@ export default function Home() {
             <span className="text-[11px] font-mono px-2 py-1 rounded-full bg-[#1e2230] border border-[#222738]">3 new</span>
           </div>
           <div className="divide-y divide-[#222738]">
-            {INBOX.map((inv) => (
+            {inbox.map((inv) => (
               <button
                 key={inv.id}
                 onClick={() => setActiveId(inv.id)}
@@ -257,8 +295,11 @@ export default function Home() {
               </button>
             ))}
           </div>
-          <div className="mt-auto p-3 border-t border-[#222738] bg-[#0f1117]">
-            <p className="text-[11px] font-mono text-slate-400">MCP: gmail_list → 3 messages hydrated. Click to load invoice.</p>
+          <div className="mt-auto p-3 border-t border-[#222738] bg-[#0f1117] flex items-center justify-between gap-2">
+            <p className="text-[11px] font-mono text-slate-400">
+              {inboxLoading ? "MCP: gmail_list loading…" : `MCP: ${inboxSource} → ${inbox.length} hydrated. Click to load.`}
+            </p>
+            <button onClick={async () => { setInboxLoading(true); try { const r=await fetch("/api/inbox",{cache:"no-store"}); const j=await r.json(); if(j.invoices?.length){ const live=j.invoices.map((x:Invoice)=>x); setInbox(live); setInboxSource(j.source); } } catch{} setInboxLoading(false); }} className="text-[11px] font-mono px-2 py-1 rounded bg-[#1e2230] border border-[#222738] hover:bg-white/10">Refresh</button>
           </div>
         </div>
 
