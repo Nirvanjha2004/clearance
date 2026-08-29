@@ -2,10 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
-import {
-  LayoutDashboard,
-  ShieldCheck,
-} from "lucide-react";
+import { LayoutDashboard, ShieldCheck } from "lucide-react";
 
 export default function Sidebar() {
   const sidebarRef = useRef<HTMLElement>(null);
@@ -53,35 +50,15 @@ export default function Sidebar() {
 
       {/* Main nav */}
       <nav className="flex-1 px-3 space-y-0.5">
-        {/* Dashboard — only real page */}
         <div className="nav-item active w-full text-left cursor-default">
           <span className="icon-wrap">
             <LayoutDashboard size={14} />
           </span>
           Dashboard
         </div>
-
-        {/* Coming-soon nav items — visually present but clearly inactive */}
-        {[
-          { label: "AI Insights",     soon: true },
-          { label: "Budgets",         soon: true },
-          { label: "Procurement",     soon: true },
-          { label: "Audit Trail",     soon: true },
-          { label: "Control & Safety",soon: true },
-        ].map((item) => (
-          <div
-            key={item.label}
-            className="sidebar-item nav-item w-full opacity-40 cursor-not-allowed select-none"
-            title="Coming soon"
-          >
-            <span className="icon-wrap" />
-            {item.label}
-            <span className="ml-auto text-[9px] font-mono px-1.5 py-0.5 rounded bg-[var(--surface-3)] text-[var(--fg-3)]">soon</span>
-          </div>
-        ))}
       </nav>
 
-      {/* Pro card — purely decorative, no button */}
+      {/* Pro card — purely decorative */}
       <div
         className="sidebar-item mx-3 mt-4 mb-2 rounded-xl overflow-hidden relative p-4 border border-[rgba(99,102,241,0.25)]"
         style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.10) 0%, rgba(139,92,246,0.06) 100%)" }}
@@ -91,7 +68,7 @@ export default function Sidebar() {
           style={{ background: "radial-gradient(circle, #8b5cf6 0%, transparent 70%)", filter: "blur(8px)" }}
         />
         <p className="text-[11px] font-semibold text-[var(--fg)] leading-snug">Clearance Pro</p>
-        <p className="text-[10px] text-[var(--fg-3)] mt-0.5">Advanced controls · coming soon</p>
+        <p className="text-[10px] text-[var(--fg-3)] mt-0.5">Advanced controls</p>
       </div>
 
       {/* User */}
