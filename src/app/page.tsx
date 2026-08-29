@@ -5,7 +5,7 @@ import {
   ShieldCheck,
   Mail,
   Database,
-  Github,
+  GitBranch,
   Search,
   Terminal,
   Cpu,
@@ -175,7 +175,7 @@ export default function Home() {
         <div className="flex items-center gap-2 flex-wrap">
           <span className="inline-flex items-center gap-2 text-xs font-mono px-3 py-1.5 rounded-full bg-[#11131a] border border-[#222738]"><Mail size={14} /> Gmail MCP <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /></span>
           <span className="inline-flex items-center gap-2 text-xs font-mono px-3 py-1.5 rounded-full bg-[#11131a] border border-[#222738]"><Database size={14} /> Postgres</span>
-          <span className="inline-flex items-center gap-2 text-xs font-mono px-3 py-1.5 rounded-full bg-[#11131a] border border-[#222738]"><Github size={14} /> GitHub</span>
+          <span className="inline-flex items-center gap-2 text-xs font-mono px-3 py-1.5 rounded-full bg-[#11131a] border border-[#222738]"><GitBranch size={14} /> GitHub</span>
           <span className="inline-flex items-center gap-2 text-xs font-mono px-3 py-1.5 rounded-full bg-[#11131a] border border-[#222738]"><Search size={14} /> Exa</span>
           <a href="#qodo" className="text-xs underline decoration-dotted underline-offset-4 text-slate-400 hover:text-white">Qodo Evidence ↓</a>
         </div>

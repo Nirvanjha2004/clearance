@@ -1,0 +1,11 @@
+# TrueForge Models Catalog — Clearance
+models:
+  - id: gpt-4o-mini
+    provider: openai
+    via: ai_gateway  # credentials in TrueFoundry AI Gateway, not in agent
+    default: true
+  - id: claude-3-5-sonnet
+    provider: anthropic
+    via: ai_gateway
+  - id: gemini-1.5-pro
+    provider: google
