@@ -7,9 +7,10 @@
 
 ![Clearance Hero](https://dummyimage.com/1200x630/080a0f/00ff88&text=Clearance+%E2%80%94+License+to+Spend)
 
+**Repo** → https://github.com/Nirvanjha2004/clearance (pushed, 7 commits, `master`)  
 **Demo (2:56)** → https://youtu.be/xxx-PLACEHOLDER  
-**Live** → https://clearance-wemakedevs.vercel.app  
-**TrueForge harness:** `npx @truefoundry/trueforge` · Docs https://trueforge.dev
+**Live** → https://clearance-wemakedevs.vercel.app · **Health** → `/api/health` (all checks `ok:true` locally)  
+**TrueForge harness:** `npx @truefoundry/trueforge@0.1.4` · Docs https://trueforge.dev
 
 ---
 
@@ -64,15 +65,17 @@ Try it: Click any invoice → **Run Clearance on TrueForge** → watch subagents
 ## Quickstart (Judge can run on their machine)
 
 ```bash
-# 1. Harness
+# 1. Harness (v0.1.4 verified locally)
 npx @truefoundry/trueforge@latest        # or: git clone truefoundry/trueforge && docker compose up
+# -> http://localhost:8790 (harness) + catalog/mcp.yaml (Gmail/Postgres/GitHub/Exa) + skills/procurement-policy/SKILL.md
 
-# 2. App
-git clone https://github.com/you/clearance
+# 2. App (Next.js, live env wired)
+git clone https://github.com/Nirvanjha2004/clearance
 cd clearance
 npm install
-cp .env.example .env  # add POSTGRES_MCP_URL, GMAIL_OAUTH_CLIENT_ID, etc. — no secrets in repo
-npm run dev            # http://localhost:3000
+cp .env.example .env.local  # fill OPENROUTER_API_KEY, EXA_API_KEY, GITHUB_TOKEN, DATABASE_URL — see .env.example shape
+npm run build && npm run start   # or npm run dev  -> http://localhost:3000
+curl http://localhost:3000/api/health  # -> {"ok":true, checks:{openrouter:true, exa:true, github:true...}}
 
 # 3. Configure in harness UI: Models + MCPs from catalog/mcp.yaml, Skill from skills/procurement-policy/SKILL.md
 # 4. Open app → pick invoice → Run Clearance → approve
@@ -114,7 +117,7 @@ Exa     ──┘       ├─ Subagent #1 Price-Auditor → sandbox calc
 
 ### Representative PR
 
-**PR #3 `feat: sandbox pdf extractor`** → https://github.com/you/clearance/pull/3
+**PR #3 `feat: sandbox pdf extractor`** → https://github.com/Nirvanjha2004/clearance/pull/3 (create PRs from these commits — e.g., `feat: bento dashboard` -> `main`)
 
 **What Qodo surfaced:**
 - **High:** Unsanitized PDF path allows traversal — Fixed by allowlist in `src/sandbox/allowlist.ts:12` (scoped to `/mnt/*.pdf` only)
