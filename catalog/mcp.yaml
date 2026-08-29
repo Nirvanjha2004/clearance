@@ -1,16 +1,19 @@
-# TrueForge MCP Catalog — Clearance
-# Every tool is real (not mocked) — Gmail via OAuth, Postgres, GitHub, Exa Search
+# TrueForge MCP Catalog — Clearance (wired)
+# Every tool is REAL (not mocked) — Gmail via OAuth, Postgres, GitHub, Exa Search
+# Env vars resolved by harness at runtime — never committed (see .env.local locally, .env.example for shape)
+
 mcpServers:
   gmail:
     type: remote
     url: "https://gmail-mcp.trueforge.local/mcp"
-    auth: oauth_in_chat
+    auth: oauth_in_chat  # click Auth in TrueForge UI — no secret in repo
     tools: [gmail_list, gmail_read, gmail_send]
     description: "Procurement inbox — reads invoices, sends PO confirmations"
+    # fallback SMTP for local notify outside harness: GMAIL_USER + GMAIL_APP_PASSWORD
 
   postgres:
     type: remote
-    url: "${POSTGRES_MCP_URL}"
+    url: "${DATABASE_URL}"  # postgres://postgres:postgres@localhost:5434/clearance (or file:./data/clearance.db for sqlite)
     auth: header
     tools: [query, insert, list_tables]
     description: "Finance DB — vendors, budgets, PO history"
@@ -18,18 +21,21 @@ mcpServers:
   github:
     type: remote
     url: "https://api.githubcopilot.com/mcp"
-    auth: header
+    auth: header  # header: Authorization: Bearer ${GITHUB_TOKEN}
+    env: { GITHUB_TOKEN: "${GITHUB_TOKEN}" }
     tools: [create_issue, create_pr, commit_file]
-    description: "Audit log — commits immutable PO record"
+    description: "Audit log — commits immutable PO record (ghp_... via env)"
 
   exa:
     type: remote
     url: "https://mcp.exa.ai/mcp"
+    headers: { x-api-key: "${EXA_API_KEY}" }
+    env: { EXA_API_KEY: "${EXA_API_KEY}" }
     tools: [web_search, crawl]
-    description: "Price & vendor reputation lookup"
+    description: "Price & vendor reputation lookup (3d4fec89-...)"
 
   # Built-in TrueForge tools
   sandbox:
     provider: daytona
     onDemand: true
-    description: "Isolated Python — pdfplumber extraction + budget calc"
+    description: "Isolated Python — pdfplumber extraction + budget calc, secrets stay in harness"
